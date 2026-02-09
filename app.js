@@ -15,10 +15,9 @@ const STATE = {
 
 class Speaki {
     /** コンストラクタ: Speakiの初期化 */
-    constructor(id, parentElement, assets, x, y) {
+    constructor(id, parentElement, x, y) {
         this.id = id;
         this.parentElement = parentElement;
-        this.assets = assets;
 
         // 状態プロパティ
         this.x = x;
@@ -36,7 +35,9 @@ class Speaki {
         this.isMoving = false;
         this.arrivalTime = Date.now();
         this.destinationSet = false;
-        this.waitDuration = 2000; // 次の移動までの待機時間（ミリ秒）
+        this.waitDuration = 1000 + Math.random() * 4000; // 最初もバラバラに動くようにランダム化（1~5秒）
+
+        this.facingLeft = true; // 現在向いている方向 (true: 左, false: 右)
 
         this.distortion = { skewX: 0, rotateX: 0, scale: 1.0 };
         this.targetDistortion = { skewX: 0, rotateX: 0, scale: 1.0 };
@@ -49,8 +50,15 @@ class Speaki {
         this.isActuallyDragging = false;
         this.actionTimeout = null;
 
+        // アセット管理用
+        this.currentAssetKey = ''; // 現在の「感情_行動」
+        this.currentImgSrc = '';   // 現在選択されている画像パス
+
         // DOM生成
         this.createDOM();
+
+        // 初期画像を表示
+        this.syncSpeakiDOM();
     }
 
     /** DOM要素の生成 */
@@ -62,7 +70,7 @@ class Speaki {
 
         const img = document.createElement('img');
         img.className = 'speaki-sprite';
-        img.src = this.assets['speaki_happy'];
+        // img.src はこの後の syncSpeakiDOM() で設定されるためここでは不要
 
         const emoji = document.createElement('div');
         emoji.className = 'speaki-emoji-overlay';
@@ -93,15 +101,26 @@ class Speaki {
         const dom = this.dom;
 
         // 1. 画像切り替え
-        let speakiImgKey = 'speaki_happy';
-        if (this.state === STATE.GIFT_RETURNING || this.state === STATE.GIFT_READY) {
-            speakiImgKey = 'speaki_gift';
-        } else if (this.action === 'walking') speakiImgKey = 'speaki_walking';
-        else if (this.action === 'surprised') speakiImgKey = 'speaki_surprised';
-        else if (this.action === 'sleeping') speakiImgKey = 'speaki_sleeping';
+        // 感情とアクションからキーを作成 (例: speaki_happy_wait)
+        // 今回のアセットは _wait 系統がメインなので、アクションを wait に寄せているが
+        // 将来的に _walking などが増えても対応できる設計にする。
+        let mappedAction = this.action;
+        if (mappedAction === 'idle' || mappedAction === 'walking') mappedAction = 'wait';
 
-        if (this.assets[speakiImgKey] && dom.sprite.src.indexOf(this.assets[speakiImgKey]) === -1) {
-            dom.sprite.src = this.assets[speakiImgKey];
+        const assetKey = `speaki_${this.emotion}_${mappedAction}`;
+
+        // キーが変わったか、まだ画像が決まっていないなら再抽選
+        if (this.currentAssetKey !== assetKey || !this.currentImgSrc) {
+            this.currentAssetKey = assetKey;
+            const game = window.game || Game.instance;
+            if (game) {
+                this.currentImgSrc = game.getRandomAsset(assetKey);
+                console.log(`[Speaki] Asset changed: ${assetKey} -> ${this.currentImgSrc}`);
+            }
+        }
+
+        if (this.currentImgSrc && dom.sprite.src.indexOf(this.currentImgSrc) === -1) {
+            dom.sprite.src = this.currentImgSrc;
         }
 
         // 2. 位置とサイズ
@@ -112,7 +131,8 @@ class Speaki {
         dom.container.style.left = `${this.x - this.size / 2}px`;
         dom.container.style.top = `${this.y - this.size / 2 + bob}px`;
 
-        const transform = `perspective(800px) rotateX(${this.distortion.rotateX}deg) skewX(${this.distortion.skewX}deg) scale(${this.distortion.scale})`;
+        const flip = this.facingLeft ? 1 : -1;
+        const transform = `perspective(800px) rotateX(${this.distortion.rotateX}deg) skewX(${this.distortion.skewX}deg) scale(${this.distortion.scale}) scaleX(${flip})`;
         dom.sprite.style.transform = transform;
 
         // 3. 絵文字
@@ -249,6 +269,8 @@ class Speaki {
         if (this.targetX !== undefined) {
             this.destinationSet = true;
             this.isMoving = true;
+            // 移動開始時に画像を再抽選させる
+            this.currentImgSrc = '';
         }
     }
 
@@ -272,6 +294,11 @@ class Speaki {
         this.x += Math.cos(angle) * this.speed;
         this.y += Math.sin(angle) * this.speed;
         this.angle = angle;
+
+        // 進んでいる方向（左右）を更新
+        if (Math.abs(dx) > 1) {
+            this.facingLeft = dx < 0;
+        }
     }
 
     /** 目的地到着時の処理 */
@@ -280,8 +307,11 @@ class Speaki {
         this.arrivalTime = Date.now();
         this.destinationSet = false;
 
-        // 待機時間をランダムに決定 (1秒 ~ 4秒)
-        this.waitDuration = 1000 + Math.random() * 3000;
+        // 到着時（待機開始時）に画像を再抽選させる
+        this.currentImgSrc = '';
+
+        // 待機時間をある程度ランダムに決定 (2秒 ~ 8秒)
+        this.waitDuration = 2000 + Math.random() * 6000;
 
         // 2. 現在のステータスに応じた次の行動の決定
         switch (this.state) {
@@ -340,23 +370,34 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.speakiRoom = document.getElementById('speaki-room');
 
-        this.speakis = []; // 複数管理用の配列
+        this.speakis = [];      // 複数管理用の配列
         this.furniture = [];
         this.placedItems = [];
         this.lastGiftTime = Date.now();
 
-        this.assets = {
-            speaki_happy: 'speaki_images/speaki_happy_wait_1.png',
-            speaki_walking: 'speaki_images/speaki_normal_wait_1.png',
-            speaki_surprised: 'speaki_images/speaki_sad_wait_1.png',
-            speaki_sleeping: 'speaki_images/speaki_sad_wait_2.png',
-            speaki_gift: 'speaki_images/speaki_happy_wait_2.png',
-            furniture_cat_tower: 'speaki_images/furniture_cat_tower.png',
-            item_toy_ball: 'speaki_images/item_toy_ball.png',
-            luxury_pillow: 'speaki_images/speaki_normal_wait_2.png'
-        };
+        this.images = {};      // キャッシュ用
+        this.assetGroups = {}; // speaki_happy_wait: [path1, path2, ...]
 
-        this.images = {};
+        Game.instance = this;
+
+        // アセットの全ファイル名リスト
+        // (注) 本来的にはfsなどで自動取得したいが、ブラウザ環境のためリスト化
+        this.assetList = [
+            'speaki_happy_wait_1.png',
+            'speaki_happy_wait_2.png',
+            'speaki_happy_wait_3.png',
+            'speaki_normal_wait_1.png',
+            'speaki_normal_wait_2.png',
+            'speaki_sad_wait_1.png',
+            'speaki_sad_wait_2.png',
+            'speaki_sad_wait_3.png',
+            'speaki_sad_surprised_1.png',
+            'speaki_sad_surprised_2.png',
+            'speaki_sad_surprised_3.png',
+            'furniture_cat_tower.png',
+            'item_toy_ball.png'
+        ];
+
         this.loadAssets();
 
         this.init();
@@ -367,13 +408,40 @@ class Game {
         requestAnimationFrame((t) => this.loop(t));
     }
 
-    /** アセット（画像）の読み込み */
+    /** アセット（画像）の読み込みとグループ化 */
     loadAssets() {
-        Object.entries(this.assets).forEach(([key, src]) => {
+        this.assetList.forEach(fileName => {
+            const path = `speaki_images/${fileName}`;
+            const baseName = fileName.replace('.png', '');
+
+            // 1. キャッシュに登録
             const img = new Image();
-            img.src = src;
-            this.images[key] = img;
+            img.src = path;
+            this.images[path] = img;
+            this.images[baseName] = img; // 後方互換性（furnitureなどの描画用）
+
+            // 2. Speaki用アセットのグループ化 (speaki_感情_行動_番号.png の形式を想定)
+            if (fileName.startsWith('speaki_')) {
+                // 番号(.png)を除いたキー名を作成 (speaki_happy_wait)
+                const parts = fileName.split('_');
+                if (parts.length >= 3) {
+                    const groupKey = `${parts[0]}_${parts[1]}_${parts[2]}`;
+                    if (!this.assetGroups[groupKey]) this.assetGroups[groupKey] = [];
+                    this.assetGroups[groupKey].push(path);
+                }
+            }
         });
+    }
+
+    /** グループの中からランダムにひとつの画像パスを返す */
+    getRandomAsset(groupKey) {
+        const group = this.assetGroups[groupKey];
+        if (!group) {
+            // 見つからない場合はデフォルトのnormal_waitを探す
+            // console.warn(`Asset group not found: ${groupKey}`);
+            return this.assetGroups['speaki_normal_wait']?.[0] || '';
+        }
+        return group[Math.floor(Math.random() * group.length)];
     }
 
     /** ゲームの初期設定 */
@@ -382,6 +450,8 @@ class Game {
         this.setupDragAndDrop();
 
         // 初期Speaki生成（3匹）
+        // アセットのロード完了を待つ必要はない（画像は描画時に解決される）が
+        // 念のため少しだけ遅らせて生成してもよい。今回は即時生成。
         for (let i = 0; i < 3; i++) {
             this.addSpeaki();
         }
@@ -392,7 +462,7 @@ class Game {
         const id = this.speakis.length;
         const x = window.innerWidth * 0.4 + (Math.random() * 100 - 50);
         const y = window.innerHeight * 0.5 + (Math.random() * 100 - 50);
-        const speaki = new Speaki(id, this.speakiRoom, this.assets, x, y);
+        const speaki = new Speaki(id, this.speakiRoom, x, y);
         this.speakis.push(speaki);
     }
 
@@ -713,6 +783,7 @@ class Game {
         });
     }
 }
+
 
 window.onload = () => {
     window.game = new Game();
