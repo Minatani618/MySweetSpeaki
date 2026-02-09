@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Sweet Speki - 癒やしのスピキ飼育スペース</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <div id="game-container">
+            <!-- 飼育スペース (80%) -->
+            <main id="speaki-room">
+                <canvas id="game-canvas"></canvas>
+                <!-- Speaki elements will be generated dynamically here -->
+                <div id="room-overlay">
+                    <div id="gift-event-ui" class="hidden">
+                        <p id="gift-message">お土産を持ってきたよ！</p>
+                        <div class="button-group">
+                            <button id="gift-btn-receive">受け取る</button>
+                        </div>
+                        <div id="reaction-group" class="hidden">
+                            <button id="reaction-btn-1">褒める</button>
+                            <button id="reaction-btn-2">お礼を言う</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- メニュー（20%） -->
+            <aside id="side-menu">
+                <h2>アイテム</h2>
+                <div id="item-list">
+                    <div class="draggable-item" data-type="furniture" data-id="cat-tower" draggable="true"> キャットタワー
+                    </div>
+                    <div class="draggable-item" data-type="item" data-id="toy-ball" draggable="true"> おもちゃのボール </div>
+                    <div class="draggable-item" data-type="item" data-id="luxury-pillow" draggable="true"> 高級枕 </div>
+                </div>
+                <div id="speaki-status">
+                    <h3>スピキの状態</h3>
+                    <div class="status-indicator">
+                        <span>感情:</span> <span id="status-emotion">穏やか</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span>行動:</span> <span id="status-action">待機中</span>
+                    </div>
+                    <div class="status-indicator debug-status">
+                        <span>次のお土産まで:</span> <span id="gift-countdown">--</span>
+                    </div>
+                    <div class="status-indicator debug-status">
+                        <span>Debug State:</span> <span id="status-debug-state">--</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
