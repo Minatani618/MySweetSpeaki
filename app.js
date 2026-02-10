@@ -53,6 +53,7 @@ class Speaki {
         // アセット管理用
         this.currentAssetKey = ''; // 現在の「感情_行動」
         this.currentImgSrc = '';   // 現在選択されている画像パス
+        this.targetItem = null;    // 現在向かっているアイテム同期用
 
         // DOM生成
         this.createDOM();
@@ -260,8 +261,20 @@ class Speaki {
             case STATE.WANDERING:
             case STATE.IDLE:
                 this.state = STATE.WANDERING;
-                this.targetX = Math.random() * (canvasWidth - 100) + 50;
-                this.targetY = Math.random() * (canvasHeight - 100) + 50;
+
+                // たまにアイテムに興味を持つ (20%の確率で、配置アイテムがある場合)
+                const game = window.game || Game.instance;
+                if (game && game.placedItems.length > 0 && Math.random() < 0.2) {
+                    const item = game.placedItems[Math.floor(Math.random() * game.placedItems.length)];
+                    this.targetItem = item;
+                    this.targetX = item.x;
+                    this.targetY = item.y;
+                    // console.log(`[Speaki ${this.id}] Targets an item: ${item.id}`);
+                } else {
+                    this.targetItem = null;
+                    this.targetX = Math.random() * (canvasWidth - 100) + 50;
+                    this.targetY = Math.random() * (canvasHeight - 100) + 50;
+                }
                 this.action = 'walking';
                 break;
         }
@@ -333,12 +346,48 @@ class Speaki {
                 break;
 
             case STATE.WANDERING:
-                // パターン：ランダムな「散歩」の目的地に到着したとき
-                // 行動を終了して「待機」状態に戻る
-                this.state = STATE.IDLE;
-                this.action = 'idle';
+                // パターン：ランダムな「散歩」または「アイテム」の目的地に到着したとき
+
+                // アイテムに対するアクション
+                if (this.targetItem) {
+                    this._performItemAction(this.targetItem);
+                } else {
+                    this.state = STATE.IDLE;
+                    this.action = 'idle';
+                }
                 break;
         }
+    }
+
+    /** アイテムに到着した際の固有アクション */
+    _performItemAction(item) {
+        this.state = STATE.INTERACTING;
+
+        if (item.id === 'baby-speaki') {
+            this.action = 'happy';
+            this.emotion = 'happy';
+        } else if (item.id === 'cat-tower') {
+            this.action = 'sleeping';
+        } else if (item.id === 'toy-ball' || item.id === 'pumpkin') {
+            this.action = 'surprised';
+        } else {
+            this.action = 'happy';
+        }
+
+        // 3~6秒間その場で留まる
+        this.waitDuration = 3000 + Math.random() * 3000;
+        this.targetItem = null;
+
+        // 一定時間後にIDLEに戻る（既存の_processFinishInteractionと似た処理だが、
+        // タイマー管理を共通化するためにここではsetTimeoutを使わず、handleArrivalのwaitDuration側に任せる形でも良いが
+        // アクションをリセットする必要があるため、setTimeoutで戻す）
+        setTimeout(() => {
+            if (this.state === STATE.INTERACTING) {
+                this.state = STATE.IDLE;
+                this.action = 'idle';
+                this.emotion = 'happy';
+            }
+        }, this.waitDuration);
     }
 
     /** インタラクション終了時の処理（3秒間喜んでから元の行動に戻る） */
@@ -395,7 +444,9 @@ class Game {
             'speaki_sad_surprised_2.png',
             'speaki_sad_surprised_3.png',
             'furniture_cat_tower.png',
-            'item_toy_ball.png'
+            'item_toy_ball.png',
+            'item_pumpkin.png',
+            'item_baby_speaki.png'
         ];
 
         this.loadAssets();
@@ -458,11 +509,11 @@ class Game {
     }
 
     /** 新しいSpeakiを追加 */
-    addSpeaki() {
+    addSpeaki(x, y) {
         const id = this.speakis.length;
-        const x = window.innerWidth * 0.4 + (Math.random() * 100 - 50);
-        const y = window.innerHeight * 0.5 + (Math.random() * 100 - 50);
-        const speaki = new Speaki(id, this.speakiRoom, x, y);
+        const finalX = x !== undefined ? x : window.innerWidth * 0.4 + (Math.random() * 100 - 50);
+        const finalY = y !== undefined ? y : window.innerHeight * 0.5 + (Math.random() * 100 - 50);
+        const speaki = new Speaki(id, this.speakiRoom, finalX, finalY);
         this.speakis.push(speaki);
     }
 
@@ -510,10 +561,23 @@ class Game {
 
     /** アイテムの配置 */
     addItem(id, type, x, y) {
-        const item = { id, type, x, y, size: type === 'furniture' ? 100 : 40 };
+        const item = {
+            id,
+            type,
+            x,
+            y,
+            size: type === 'furniture' ? 100 : 40,
+            placedTime: Date.now(),
+            stage: 'default'
+        };
+
+        // かぼちゃの場合の初期サイズ調整
+        if (id === 'pumpkin') item.size = 60;
+        if (id === 'baby-speaki') item.size = 80;
+
         this.placedItems.push(item);
 
-        // 全員興味を持つ（ただし近い方だけにする等のロジックは今回は省略）
+        // 配置直後は全員興味を持つ
         this.speakis.forEach(speaki => {
             const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING, STATE.GIFT_RETURNING].includes(speaki.state);
 
@@ -747,7 +811,33 @@ class Game {
     update(dt) {
         // 全Speaki更新
         this.speakis.forEach(speaki => speaki.update(dt));
+
+        // アイテムのライフサイクル更新 (かぼちゃ -> 赤ちゃん -> 大人)
+        this._updateItemLifecycles();
+
         this._updateUIStatus();
+    }
+
+    /** アイテムの成長・変化を管理 */
+    _updateItemLifecycles() {
+        const now = Date.now();
+        for (let i = this.placedItems.length - 1; i >= 0; i--) {
+            const item = this.placedItems[i];
+            const age = now - item.placedTime;
+
+            if (item.id === 'pumpkin' && age > 10000) {
+                // 10秒で赤ちゃんに孵化
+                item.id = 'baby-speaki';
+                item.size = 80;
+                item.placedTime = now; // 次の成長へのタイマーリセット
+                console.log("[Game] Pumpkin hatched into Baby Speaki!");
+            } else if (item.id === 'baby-speaki' && age > 20000) {
+                // さらに20秒で大人に成長
+                this.addSpeaki(item.x, item.y);
+                this.placedItems.splice(i, 1);
+                console.log("[Game] Baby Speaki grew up and joined the group!");
+            }
+        }
     }
 
     /** UIステータスの更新 */
@@ -776,6 +866,8 @@ class Game {
             if (item.id === 'cat-tower') imgKey = 'furniture_cat_tower';
             else if (item.id === 'toy-ball') imgKey = 'item_toy_ball';
             else if (item.id === 'luxury-pillow') imgKey = 'luxury_pillow';
+            else if (item.id === 'pumpkin') imgKey = 'item_pumpkin';
+            else if (item.id === 'baby-speaki') imgKey = 'item_baby_speaki';
 
             if (this.images[imgKey]) {
                 this.ctx.drawImage(this.images[imgKey], item.x - item.size / 2, item.y - item.size / 2, item.size, item.size);
