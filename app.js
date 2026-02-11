@@ -182,6 +182,43 @@ const ASSETS = {
     }
 };
 
+/**
+ * 統合アイテム定義 (ITEMS)
+ */
+const ITEMS = {
+    Pumpkin: {
+        imagefile: 'item_pumpkin.png',
+        soundfile: 'チョワヨ.mp3', // 配置時に再生
+        text: 'わあ、カボチャだ！',   // 配置時に表示
+        size: 60,
+        transform: { nextId: 'BabySpeaki', duration: 10000 }
+    },
+    BabySpeaki: {
+        imagefile: 'item_baby_speaki.png',
+        soundfile: '完全詠唱.mp3',
+        text: 'ピキッ？',
+        size: 80,
+        transform: { isAdult: true, duration: 20000 }
+    },
+    CatTower: {
+        imagefile: 'item_cat_tower.png',
+        type: 'furniture',
+        size: 100,
+        text: '登ってみたい！'
+    },
+    ToyBall: {
+        imagefile: 'item_toy_ball.png',
+        size: 40,
+        text: '転がそう！'
+    },
+    LuxuryPillow: {
+        imagefile: 'item_luxury_pillow.png',
+        size: 60,
+        text: 'ふかふかだ...',
+        ignoreReaction: true
+    }
+};
+
 class Speaki {
     /** コンストラクタ: Speakiの初期化 */
     constructor(id, parentElement, x, y) {
@@ -211,6 +248,9 @@ class Speaki {
         this.searchStartTime = 0;      // お土産探索開始時刻
         this.reactionStartTime = 0;    // リアクション開始時刻
         this.eventStartTime = 0;       // 汎用イベント開始時刻
+        this.pettingStartTime = 0;     // なでなで開始時刻
+
+        this.interactionType = null;   // 'move' or 'petting'
 
         this.facingLeft = true; // 現在向いている方向 (true: 左, false: 右)
 
@@ -306,6 +346,7 @@ class Speaki {
                     const timeSinceGift = now - window.game.lastGiftTime;
                     if (timeSinceGift >= 30000) {
                         this.state = STATE.GIFT_LEAVING;
+                        this._onStateChanged(this.state);
                         return;
                     }
                 }
@@ -454,7 +495,6 @@ class Speaki {
                 this.action = 'idle';
                 break;
         }
-        console.log(`[Speaki] State: ${newState}, Action: ${this.action}, Emotion: ${this.emotion}`);
 
         // 3. 状態からタイプ (mood / performance) を判定
         const performanceStates = [STATE.GIFT_REACTION, STATE.GIFT_TIMEOUT, STATE.ITEM_ACTION, STATE.USER_INTERACTING];
@@ -629,6 +669,7 @@ class Speaki {
             case STATE.GIFT_RETURNING:
                 this.targetX = canvasWidth * 0.4 + (Math.random() * 100 - 50);
                 this.targetY = canvasHeight * 0.5 + (Math.random() * 100 - 50);
+                this._onStateChanged(this.state);
                 break;
             case STATE.WALKING:
             default:
@@ -783,18 +824,27 @@ class Game {
             }
         });
 
-        // 既存の家具・アイテム画像も引き続き読み込む（以前のリロケータ用）
-        const otherAssets = [
-            'furniture_cat_tower.png', 'item_toy_ball.png',
-            'item_pumpkin.png', 'item_baby_speaki.png'
-        ];
-        otherAssets.forEach(fileName => {
-            const path = `speaki_images/${fileName}`;
-            const img = new Image();
-            img.src = path;
-            const key = fileName.replace('.png', '');
-            this.images[key] = img;
-            this.images[path] = img;
+        // ITEMSに定義された画像をすべて読み込む
+        Object.values(ITEMS).forEach(item => {
+            if (item.imagefile) {
+                const path = `speaki_images/${item.imagefile}`;
+                const img = new Image();
+                img.src = path;
+                const key = item.imagefile.replace('.png', '');
+                this.images[key] = img;
+                this.images[path] = img; // パス指定でも引けるように
+            }
+        });
+
+        // 特別なリソース（旧仕様との互換性や特定の演出用）
+        const specialAssets = ['item_baby_speaki.png', 'item_pumpkin.png'];
+        specialAssets.forEach(fileName => {
+            if (!this.images[fileName.replace('.png', '')]) {
+                const path = `speaki_images/${fileName}`;
+                const img = new Image();
+                img.src = path;
+                this.images[fileName.replace('.png', '')] = img;
+            }
         });
     }
 
@@ -889,42 +939,47 @@ class Game {
 
     /** アイテムの配置 */
     addItem(id, type, x, y) {
+        const itemDef = ITEMS[id];
+        if (!itemDef) return;
+
         const item = {
             id,
-            type,
+            type: itemDef.type || type,
             x,
             y,
-            size: type === 'furniture' ? 100 : 40,
+            size: itemDef.size || (type === 'furniture' ? 100 : 40),
             placedTime: Date.now(),
-            stage: 'default'
+            stage: 'default',
+            displayText: itemDef.text || null,
+            textDisplayUntil: itemDef.text ? Date.now() + 3000 : 0
         };
-
-        // Pumpkinの場合の初期サイズ調整
-        if (id === 'Pumpkin') item.size = 60;
-        if (id === 'BabySpeaki') item.size = 80;
 
         this.placedItems.push(item);
 
-        // 配置直後は全員興味を持つ
-        this.speakis.forEach(speaki => {
-            const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING, STATE.GIFT_RETURNING, STATE.GIFT_WAIT_FOR_USER_REACTION].includes(speaki.state);
-            const isItemEventActive = [STATE.ITEM_APPROACHING, STATE.ITEM_ACTION].includes(speaki.state);
-
-            // 割り込み可能な状態ならスタックに保存
-            if (isGiftEventActive || isItemEventActive) {
-                speaki.stateStack.push(speaki.state);
-            }
-
-            speaki.state = STATE.ITEM_APPROACHING;  // INTERACTING から変更
-            speaki.targetX = x;
-            speaki.targetY = y;
-            speaki.targetItem = { id, x, y };  // アイテム情報を保存
-            speaki.destinationSet = true;
-            speaki._onStateChanged(speaki.state);
-        });
-
         // 配置時の音声再生
-        this.playSound('happy');
+        if (itemDef.soundfile) {
+            this.playSound(itemDef.soundfile);
+        }
+
+        // 配置直後にスピキたちが興味を持つ（ignoreReactionが設定されていない場合）
+        if (!itemDef.ignoreReaction) {
+            this.speakis.forEach(speaki => {
+                const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING, STATE.GIFT_RETURNING, STATE.GIFT_WAIT_FOR_USER_REACTION].includes(speaki.state);
+                const isItemEventActive = [STATE.ITEM_APPROACHING, STATE.ITEM_ACTION].includes(speaki.state);
+
+                // 割り込み可能な状態ならスタックに保存
+                if (isGiftEventActive || isItemEventActive) {
+                    speaki.stateStack.push(speaki.state);
+                }
+
+                speaki.state = STATE.ITEM_APPROACHING;
+                speaki.targetX = x;
+                speaki.targetY = y;
+                speaki.targetItem = { id, x, y };
+                speaki.destinationSet = true;
+                speaki._onStateChanged(speaki.state);
+            });
+        }
     }
 
     /** マウスダウン処理（Speakiのドラッグ開始） */
@@ -962,8 +1017,8 @@ class Game {
             const s = this.speakis[i];
             const dist = Math.sqrt((x - s.x) ** 2 + (y - s.y) ** 2);
 
-            // 基本的な当たり判定（円形）かつ、画像の上部1/3以内（頭部）であること
-            const isHeadHit = (y < s.y - s.size / 3);
+            // 基本的な当たり判定（円形）かつ、画像の上部(頭部らへん）であること
+            const isHeadHit = (y < s.y - s.size / 5); //5がちょうどよさそう
 
             if (dist < s.size / 2 && isHeadHit) return s;
         }
@@ -993,7 +1048,7 @@ class Game {
         speaki._onStateChanged(speaki.state);
     }
 
-    /** マウスムーブ処理（ドラッグ中の移動） */
+    /** マウスムーブ処理（なでなで演出） */
     handleMouseMove(e) {
         if (!this.draggingSpeaki) return;
 
@@ -1006,21 +1061,22 @@ class Game {
         const dy = mouseY - speaki.lastMouseY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist <= 10) return;
+        if (dist <= 5) return;
 
-        speaki.action = 'happy';
-        speaki.emotion = 'happy';
         speaki.isActuallyDragging = true;
 
-        // 1匹だけドラッグしていても全体UIが「うれしい！」になるのは許容
-        document.getElementById('status-emotion').textContent = 'うれしい！';
+        // なでなで演出：位置は変えず、喜びの表情と震えのみ適用
+        speaki.action = 'happy';
+        speaki.emotion = 'happy';
+        document.getElementById('status-emotion').textContent = 'なでなで中...';
+
+        // マウスの動きに合わせた歪み（震え）の演出
+        speaki.targetDistortion.skewX = Math.max(-20, Math.min(20, dx * -1.0));
+        speaki.targetDistortion.rotateX = Math.max(-15, Math.min(15, dy * -0.5));
+        speaki.targetDistortion.scale = 1.05;
 
         speaki.lastMouseX = mouseX;
         speaki.lastMouseY = mouseY;
-
-        speaki.targetDistortion.skewX = Math.max(-20, Math.min(20, dx * -1.0));
-        speaki.targetDistortion.rotateX = Math.max(-15, Math.min(15, dy * -0.5));
-        speaki.targetDistortion.scale = 0.98;
     }
 
     /** マウスアップ処理（ドラッグ終了 / クリック終了） */
@@ -1177,20 +1233,34 @@ class Game {
         const now = Date.now();
         for (let i = this.placedItems.length - 1; i >= 0; i--) {
             const item = this.placedItems[i];
-            const age = now - item.placedTime;
+            const itemDef = ITEMS[item.id];
+            if (!itemDef || !itemDef.transform) continue;
 
-            if (item.id === 'Pumpkin' && age > 10000) {
-                // 10秒で赤ちゃんに孵化
-                item.id = 'BabySpeaki';
-                item.size = 80;
-                item.placedTime = now; // 次の成長へのタイマーリセット
-                this.playSound('hatch');
-                console.log("[Game] Pumpkin hatched into Baby Speaki!");
-            } else if (item.id === 'BabySpeaki' && age > 20000) {
-                // さらに20秒で大人に成長
-                this.addSpeaki(item.x, item.y);
-                this.placedItems.splice(i, 1);
-                console.log("[Game] Baby Speaki grew up and joined the group!");
+            const age = now - item.placedTime;
+            const transform = itemDef.transform;
+
+            if (age > transform.duration) {
+                if (transform.isAdult) {
+                    // スピキとして群れに加わる
+                    this.addSpeaki(item.x, item.y);
+                    this.placedItems.splice(i, 1);
+                } else if (transform.nextId) {
+                    // 別のアイテムに変化
+                    const nextId = transform.nextId;
+                    const nextDef = ITEMS[nextId];
+                    if (nextDef) {
+                        item.id = nextId;
+                        item.size = nextDef.size || item.size;
+                        item.placedTime = now; // 次の変化へのタイマーリセット
+
+                        // 変化後のアイテムの演出（音声・テキスト）を適用
+                        if (nextDef.soundfile) this.playSound(nextDef.soundfile);
+                        if (nextDef.text) {
+                            item.displayText = nextDef.text;
+                            item.textDisplayUntil = now + 3000;
+                        }
+                    }
+                }
             }
         }
     }
@@ -1234,16 +1304,30 @@ class Game {
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // アイテムの描画
         this.placedItems.forEach(item => {
-            let imgKey = '';
-            if (item.id === 'CatTower') imgKey = 'furniture_cat_tower';
-            else if (item.id === 'ToyBall') imgKey = 'item_toy_ball';
-            else if (item.id === 'LuxuryPillow') imgKey = 'luxury_pillow';
-            else if (item.id === 'Pumpkin') imgKey = 'item_pumpkin';
-            else if (item.id === 'BabySpeaki') imgKey = 'item_baby_speaki';
+            const itemDef = ITEMS[item.id];
+            if (!itemDef) return;
 
+            const imgKey = itemDef.imagefile ? itemDef.imagefile.replace('.png', '') : '';
             if (this.images[imgKey]) {
-                this.ctx.drawImage(this.images[imgKey], item.x - item.size / 2, item.y - item.size / 2, item.size, item.size);
+                const img = this.images[imgKey];
+                this.ctx.drawImage(img, item.x - item.size / 2, item.y - item.size / 2, item.size, item.size);
+            }
+
+            // アイテムのテキスト表示
+            if (item.displayText && Date.now() < item.textDisplayUntil) {
+                this.ctx.save();
+                this.ctx.font = "bold 18px 'Zen Maru Gothic', sans-serif";
+                this.ctx.textAlign = 'center';
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                this.ctx.lineWidth = 3;
+
+                const textY = item.y - item.size / 2 - 10;
+                this.ctx.strokeText(item.displayText, item.x, textY);
+                this.ctx.fillText(item.displayText, item.x, textY);
+                this.ctx.restore();
             }
         });
     }
