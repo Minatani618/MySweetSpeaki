@@ -190,6 +190,19 @@ const ASSETS = {
         soundfile: 'ウアア.mp3',
         text: 'ぐーぐー...',
         movePattern: 'stretch'
+    },
+    // ---- なでなで ----
+    speaki_performance_happy_idle_1: {
+        imagefile: 'speaki_happy_idle_1.png',
+        soundfile: 'チョワヨ.mp3',
+        text: 'チョワヨ！',
+        movePattern: 'bounce'
+    },
+    speaki_performance_sad_idle_1: {
+        imagefile: 'speaki_sad_idle_1.png',
+        soundfile: 'アーウ.mp3',
+        text: 'アーーウ...',
+        movePattern: 'shake'
     }
 };
 
@@ -803,8 +816,16 @@ class Speaki {
 
         // 移動継続：角度を計算して座標を更新
         const angle = Math.atan2(dy, dx);
-        this.x += Math.cos(angle) * this.speed;
-        this.y += Math.sin(angle) * this.speed;
+
+        // 逃走中（好感度が低く、隠れ家に向かっている）なら速度を2倍にする
+        let currentSpeed = this.speed;
+        const distToHiddenTarget = Math.sqrt(Math.pow(this.targetX - 50, 2) + Math.pow(this.targetY - 100, 2));
+        if (this.friendship <= -31 && distToHiddenTarget < 30) {
+            currentSpeed *= 2.0;
+        }
+
+        this.x += Math.cos(angle) * currentSpeed;
+        this.y += Math.sin(angle) * currentSpeed;
         this.angle = angle;
 
         // 進んでいる方向（左右）を更新
@@ -1254,6 +1275,11 @@ class Game {
             if (speaki.friendship >= 11) {
                 speaki.emotion = 'happy';
             }
+
+            // なでなで中はサウンドをループ再生させる
+            if (speaki.currentVoice) {
+                speaki.currentVoice.loop = true;
+            }
         }
 
         speaki.isActuallyDragging = true;
@@ -1308,6 +1334,13 @@ class Game {
             speaki.state = STATE.IDLE;
         }
 
+        // なでなでループ音声を停止
+        if (speaki.currentVoice) {
+            speaki.currentVoice.loop = false;
+            speaki.currentVoice.pause();
+            speaki.currentVoice = null;
+        }
+
         this.draggingSpeaki = null;
     }
 
@@ -1331,6 +1364,14 @@ class Game {
         } else {
             speaki.action = 'idle';
         }
+
+        // アクション終了時に音声を停止
+        if (speaki.currentVoice) {
+            speaki.currentVoice.loop = false;
+            speaki.currentVoice.pause();
+            speaki.currentVoice = null;
+        }
+
         // 好感度に応じて表情をリセット
         speaki.emotion = (speaki.friendship <= -11) ? 'sad' : 'happy';
     }
