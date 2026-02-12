@@ -20,6 +20,91 @@ body {
     overflow: hidden;
 }
 
+/* タイトル画面のスタイリング */
+#title-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(224, 234, 252, 0.9) 0%, rgba(207, 222, 243, 0.9) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: opacity 0.8s ease, visibility 0.8s;
+}
+
+#title-screen.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.title-content {
+    background: var(--glass-bg);
+    padding: 4rem;
+    border-radius: 40px;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow);
+    text-align: center;
+    max-width: 700px;
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    animation: floatingUI 3s ease-in-out infinite;
+}
+
+.title-content h1 {
+    font-size: 4rem;
+    margin-bottom: 2rem;
+    background: linear-gradient(45deg, #7ab8f5, #a3d2ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    letter-spacing: -1px;
+}
+
+.title-content p {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 3rem;
+    color: #5d6d7e;
+}
+
+#start-button {
+    font-size: 1.2rem;
+    padding: 1.2rem 3rem;
+    background: linear-gradient(135deg, #7ab8f5 0%, #4a90e2 100%);
+    box-shadow: 0 4px 15px rgba(122, 184, 245, 0.4);
+    border: none;
+    color: white;
+    font-family: inherit;
+    font-weight: 600;
+    border-radius: 60px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#start-button:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(122, 184, 245, 0.5);
+    background: linear-gradient(135deg, #8bc3f6 0%, #5ba0e9 100%);
+}
+
+@keyframes floatingUI {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
 #app {
     width: 100vw;
     height: 100vh;

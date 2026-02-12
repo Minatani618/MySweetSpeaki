@@ -849,6 +849,13 @@ class Game {
         window.addEventListener('resize', () => this.resize());
 
         this.lastTime = 0;
+
+        // 開始ボタンの待機
+        const startBtn = document.getElementById('start-button');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => this.startGame());
+        }
+
         requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -911,12 +918,22 @@ class Game {
         this.setupInteractions();
         this.setupDragAndDrop();
 
-        // 初期Speaki生成（1匹に変更）
-        // アセットのロード完了を待つ必要はない（画像は描画時に解決される）が
-        // 念のため少しだけ遅らせて生成してもよい。今回は即時生成。
-        for (let i = 0; i < 1; i++) {
-            this.addSpeaki();
+        // 初期Speaki生成は startGame で行うためここでは削除
+    }
+
+    /** タイトル画面を閉じてゲームを開始する */
+    startGame() {
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) {
+            titleScreen.classList.add('fade-out');
         }
+
+        // ユーザーアクションをきっかけに音声を有効化
+        this.audioEnabled = true;
+
+        // 初期Speaki生成（1匹）
+        // アセットのロード完了を待つ必要はない（画像は描画時に解決される）
+        this.addSpeaki();
     }
 
     /** アイテムメニューを動的に生成 */
