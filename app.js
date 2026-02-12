@@ -166,18 +166,29 @@ const ASSETS = {
         text: 'ﾁｮﾜﾖ!',
         movePattern: 'bounce'
     },
-    // ---- うれしい ----
-    speaki_performance_happy_reaction_1: {
-        imagefile: 'speaki_happy_wait_3.png',
-        soundfile: 'チョワヨ.mp3',
-        text: 'ヤッター!',
+    speaki_performance_ITEM_ToyBall_1: {
+        imagefile: 'speaki_happy_idle_1.png',
+        soundfile: '完全詠唱.mp3',
+        text: '完全詠唱',
         movePattern: 'bounce'
     },
-    // ---- 悲しい ----
-    speaki_performance_sad_timeout_1: {
-        imagefile: 'speaki_sad_wait_3.png',
+    // ---- ギフト ----
+    speaki_mood_happy_giftwait_1: {
+        imagefile: 'speaki_happy_idle_1.png', // ギフト待機画像
         soundfile: 'チョワヨ.mp3',
-        text: 'ぐーぐー',
+        text: 'プレゼントだよ！',
+        movePattern: 'bounce'
+    },
+    speaki_performance_happy_giftreaction_1: {
+        imagefile: 'speaki_happy_idle_1.png',
+        soundfile: '完全詠唱.mp3',
+        text: '完全詠唱',
+        movePattern: 'bounce'
+    },
+    speaki_performance_sad_gifttimeout_1: {
+        imagefile: 'speaki_sad_idle_1.png',
+        soundfile: 'ウアア.mp3',
+        text: 'ぐーぐー...',
         movePattern: 'stretch'
     }
 };
@@ -347,7 +358,8 @@ class Speaki {
     _updateStateTransition() {
         const now = Date.now();
         const dist = this.destinationSet ? Math.sqrt(Math.pow(this.targetX - this.x, 2) + Math.pow(this.targetY - this.y, 2)) : 999;
-        const arrived = dist <= 100; // ある程度近づいたら到着とみなす（小さくすると複数のスピキが完全に重なってしまうため）
+        //const arrived = dist <= 100; // ある程度近づいたら到着とみなす（小さくすると複数のスピキが完全に重なってしまうため）
+        const arrived = dist <= 10;
 
         switch (this.state) {
             case STATE.IDLE:
@@ -404,7 +416,6 @@ class Speaki {
                 if (now - this.eventStartTime > 10000) {
                     this.state = STATE.GIFT_TIMEOUT;
                     this.eventStartTime = now;
-                    this.action = 'sleeping';
                     window.game.updateGiftUI('hide');
                     const emotionEl = document.getElementById('status-emotion');
                     if (emotionEl) emotionEl.textContent = 'ぐーぐー...';
@@ -482,9 +493,14 @@ class Speaki {
                 this.action = 'walking';
                 break;
 
+            case STATE.GIFT_WAIT_FOR_USER_REACTION:
+                this.emotion = 'happy';
+                this.action = 'giftwait';
+                break;
+
             case STATE.GIFT_REACTION:
                 this.emotion = 'happy';
-                this.action = 'reaction';
+                this.action = 'giftreaction';
                 break;
 
             case STATE.ITEM_APPROACHING:
@@ -497,7 +513,7 @@ class Speaki {
 
             case STATE.GIFT_TIMEOUT:
                 this.emotion = 'sad';
-                this.action = 'timeout';
+                this.action = 'gifttimeout';
                 break;
 
             case STATE.USER_INTERACTING:
@@ -613,7 +629,7 @@ class Speaki {
 
         // 3. 絵文字 (将来的にテキスト表示に統合)
         let emoji = '';
-        if (this.state === STATE.GIFT_RETURNING || this.state === STATE.GIFT_READY) emoji = '🎁';
+        if ([STATE.GIFT_RETURNING, STATE.GIFT_WAIT_FOR_USER_REACTION, STATE.GIFT_REACTION].includes(this.state)) emoji = '🎁';
         else if (this.isDragging) emoji = '❤️';
 
         dom.emoji.textContent = emoji;
@@ -660,6 +676,31 @@ class Speaki {
         }
     }
 
+    /** アイテムへの接近を開始する（共通化メソッド） */
+    approachItem(item, offset = 100) {
+        if (!item) return;
+
+        this.state = STATE.ITEM_APPROACHING;
+        this.targetItem = item;
+
+        // アイテムから自分の方へ offset 離れた位置を目的地にする
+        const dx = this.x - item.x;
+        const dy = this.y - item.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 0) {
+            this.targetX = item.x + (dx / dist) * offset;
+            this.targetY = item.y + (dy / dist) * offset;
+        } else {
+            // 完全に重なっている場合は右にずらす
+            this.targetX = item.x + offset;
+            this.targetY = item.y;
+        }
+
+        this.destinationSet = true;
+        this._onStateChanged(this.state);
+    }
+
     /** 目的地を決定（移動開始時の1回だけ実行） */
     _decideNextDestination() {
         const canvasWidth = this.parentElement.clientWidth || window.innerWidth;
@@ -687,11 +728,7 @@ class Speaki {
                 const game = window.game || Game.instance;
                 if (game && game.placedItems.length > 0 && Math.random() < 0.2) {
                     const item = game.placedItems[Math.floor(Math.random() * game.placedItems.length)];
-                    this.state = STATE.ITEM_APPROACHING;
-                    this.targetItem = item;
-                    this.targetX = item.x;
-                    this.targetY = item.y;
-                    this._onStateChanged(this.state);
+                    this.approachItem(item); // 共通メソッドを使用し、停止距離は100px
                 } else {
                     this.targetItem = null;
                     this.targetX = Math.random() * (canvasWidth - 100) + 50;
@@ -751,7 +788,7 @@ class Speaki {
 
     /** アイテムに到着した際の固有アクション */
     _performItemAction(item) {
-        // 新しい規則に従い、感情を ITEM、アクションをアイテム名に設定
+
         this.emotion = 'ITEM';
         this.action = item.id;
 
@@ -760,7 +797,7 @@ class Speaki {
         this.eventStartTime = this.actionStartTime;
         this.targetItem = null;
 
-        // 音声と画像アセットの切り替えは、この後の _onStateChanged(STATE.ITEM_ACTION) が行います
+        // 音声と画像アセットの切り替えは、この後の _onStateChanged(STATE.ITEM_ACTION) が行う
     }
 
     /** インタラクション終了時の処理（3秒間喜んでから元の行動に戻る） */
@@ -995,6 +1032,11 @@ class Game {
         // 配置直後にスピキたちが興味を持つ（ignoreReactionが設定されていない場合）
         if (!itemDef.ignoreReaction) {
             this.speakis.forEach(speaki => {
+
+                // 半径500px以内のスピキだけが反応する
+                let distToItem = Math.sqrt((speaki.x - x) ** 2 + (speaki.y - y) ** 2);
+                if (distToItem > 500) return;
+
                 const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING, STATE.GIFT_RETURNING, STATE.GIFT_WAIT_FOR_USER_REACTION].includes(speaki.state);
                 const isItemEventActive = [STATE.ITEM_APPROACHING, STATE.ITEM_ACTION].includes(speaki.state);
 
@@ -1003,12 +1045,8 @@ class Game {
                     speaki.stateStack.push(speaki.state);
                 }
 
-                speaki.state = STATE.ITEM_APPROACHING;
-                speaki.targetX = x;
-                speaki.targetY = y;
-                speaki.targetItem = { id, x, y };
-                speaki.destinationSet = true;
-                speaki._onStateChanged(speaki.state);
+                // アイテムへの接近を開始（共通メソッドを使用、距離は100px）
+                speaki.approachItem(item);
             });
         }
     }
@@ -1201,7 +1239,7 @@ class Game {
         this.giftPartner = speaki;
         speaki.state = STATE.GIFT_WAIT_FOR_USER_REACTION;
         speaki.eventStartTime = Date.now();
-        speaki.action = 'happy';
+        speaki._onStateChanged(speaki.state);
 
         this.updateGiftUI('start');
         this.playSound('gift');
@@ -1220,7 +1258,7 @@ class Game {
         if (this.giftPartner) {
             this.giftPartner.state = STATE.GIFT_REACTION;
             this.giftPartner.eventStartTime = Date.now();
-            this.giftPartner.action = 'happy';
+            this.giftPartner._onStateChanged(this.giftPartner.state);
             const emotionEl = document.getElementById('status-emotion');
             if (emotionEl) emotionEl.textContent = (type === 1) ? 'えへへ、うれしい！' : 'どういたしまして！';
             this.playSound('happy');
