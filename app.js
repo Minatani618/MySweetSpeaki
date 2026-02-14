@@ -173,6 +173,18 @@ const ASSETS = {
         text: '完全詠唱',
         movePattern: 'bounce'
     },
+    speaki_performance_ITEM_CatTower_1: {
+        imagefile: 'speaki_happy_idle_1.png',
+        soundfile: 'チョワヨ.mp3',
+        text: 'たかーい！',
+        movePattern: 'bounce'
+    },
+    speaki_performance_ITEM_generic_1: {
+        imagefile: 'speaki_happy_idle_1.png',
+        soundfile: 'チョワヨ.mp3',
+        text: 'なにかな？',
+        movePattern: 'bounce'
+    },
     // ---- ギフト ----
     speaki_mood_happy_giftwait_1: {
         imagefile: 'speaki_happy_idle_1.png', // ギフト待機画像
@@ -576,7 +588,9 @@ class Speaki {
     /** 再生中の音声を停止 */
     _stopCurrentVoice() {
         if (this.currentVoice) {
+            this.currentVoice.loop = false; // ループ解除
             this.currentVoice.pause();
+            this.currentVoice.currentTime = 0; // 頭出し
             this.currentVoice = null;
         }
     }
@@ -644,6 +658,9 @@ class Speaki {
 
     /** 条件に合致するアセットを検索して適用 */
     _applySelectedAsset(state) {
+        // 新しいアセットを適用する前に、念のため現在の音声を停止する
+        this._stopCurrentVoice();
+
         const type = [STATE.GIFT_REACTION, STATE.GIFT_TIMEOUT, STATE.ITEM_ACTION, STATE.USER_INTERACTING].includes(state)
             ? 'performance' : 'mood';
 
@@ -658,6 +675,14 @@ class Speaki {
             candidates = Object.entries(ASSETS).filter(([key]) => {
                 const p = key.split('_');
                 return p[1] === type && p[2] === 'normal' && p[3] === this.action;
+            });
+        }
+
+        // それでも合致しなければ、ITEM 感情で汎用的なものを検索 (ITEM_ACTION時のみ)
+        if (candidates.length === 0 && state === STATE.ITEM_ACTION) {
+            candidates = Object.entries(ASSETS).filter(([key]) => {
+                const p = key.split('_');
+                return p[1] === type && p[2] === 'ITEM' && p[3] === 'generic';
             });
         }
 
@@ -1377,7 +1402,17 @@ class Game {
             // 好感度が「とっても低い」場合はアイテムに興味を示さない
             if (speaki.friendship <= -31) return;
 
-            const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING, STATE.GIFT_RETURNING, STATE.GIFT_WAIT_FOR_USER_REACTION].includes(speaki.state);
+            // 特定の重要ステート（ギフト帰還中、なでなで中など）は割り込み禁止
+            const nonInterruptibleStates = [
+                STATE.GIFT_RETURNING,
+                STATE.GIFT_WAIT_FOR_USER_REACTION,
+                STATE.GIFT_REACTION,
+                STATE.GIFT_TIMEOUT,
+                STATE.USER_INTERACTING
+            ];
+            if (nonInterruptibleStates.includes(speaki.state)) return;
+
+            const isGiftEventActive = [STATE.GIFT_LEAVING, STATE.GIFT_SEARCHING].includes(speaki.state);
             const isItemEventActive = [STATE.ITEM_APPROACHING, STATE.ITEM_ACTION].includes(speaki.state);
 
             // 割り込み可能な状態ならスタックに保存
@@ -1556,11 +1591,7 @@ class Game {
         speaki.destinationSet = false;
         speaki.state = (speaki.stateStack.length > 0) ? speaki.stateStack.pop() : STATE.IDLE;
 
-        if (speaki.currentVoice) {
-            speaki.currentVoice.loop = false;
-            speaki.currentVoice.pause();
-            speaki.currentVoice = null;
-        }
+        speaki._stopCurrentVoice();
 
         this.interactTarget = null;
     }
