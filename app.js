@@ -132,6 +132,19 @@ const ASSETS = {
         text: 'ｳｱｱ!ｽﾋﾟｷﾃﾞﾙｼﾞﾊﾞｾﾞﾖ!',
         movePattern: 'none'
     },
+    speaki_mood_sad_idle_4: {
+        imagefile: 'speaki_sad_walking_1.png',
+        soundfile: 'スピキヲイジメヌンデ.mp3',
+        text: 'ｽﾋﾟｷｦｲｼﾞﾒﾇﾝﾃﾞ...',
+        movePattern: 'shake'
+    },
+    speaki_mood_sad_idle_5: {
+        imagefile: 'speaki_sad_walking_3.png',
+        soundfile: '本場スピキ叩き.mp3',
+        text: 'ﾃﾞﾙｼﾞﾊﾞｾﾞﾖ!',
+        movePattern: 'shake'
+    },
+
     // ------ 歩き ------
     speaki_mood_sad_walking_1: {
         imagefile: 'speaki_sad_walking_1.png',
@@ -274,7 +287,6 @@ const ITEMS = {
         size: 180,
         pitch: 1.5,
         showInMenu: true,
-        isSpecialGift: true,
         transform: { nextId: 'Pumpkin2', duration: 10000 }
     },
     Pumpkin2: {
@@ -1312,7 +1324,7 @@ class Game {
                 let displayName = config.name || id;
                 if (id === 'RandomGift') {
                     if (this.stockGifts <= 0) return;
-                    displayName = `？（×${this.stockGifts}）`;
+                    displayName = `${config.name}（×${this.stockGifts}）`;
                 }
 
                 const itemDiv = document.createElement('div');
@@ -1683,11 +1695,10 @@ class Game {
         setTimeout(() => heart.remove(), 1200);
     }
 
-    /** 独立したヒットエフェクト（💢）を生成 */
+    /** 独立したヒットエフェクト（スパーク）を生成 */
     _createHitEffect(x, y) {
         const effect = document.createElement('div');
         effect.className = 'hit-effect';
-        effect.textContent = '💢';
         effect.style.left = `${x}px`;
         effect.style.top = `${y}px`;
 
@@ -1879,7 +1890,7 @@ class Game {
             html += `
                 <div class="speaki-entry">
                     <div class="speaki-entry-header">
-                        <span class="speaki-name">スピキ #${s.id + 1}</span>
+                        <span class="speaki-name">ｽﾋﾟｷ (${s.id + 1}ﾋﾟｷ目)</span>
                         <span class="speaki-friendship ${cls}">${label}</span>
                     </div>
                     <div class="speaki-detail">
@@ -1896,8 +1907,6 @@ class Game {
             `;
         });
         listContainer.innerHTML = html;
-
-        this._updateGiftCountdownUI();
     }
 
     /** 感情の表示用テキストを取得 (ヘルパー) */
@@ -1913,20 +1922,6 @@ class Game {
         return '穏やか';
     }
 
-    /** ギフトカウントダウンUIの更新 (ヘルパー) */
-    _updateGiftCountdownUI() {
-        const countdownEl = document.getElementById('gift-countdown');
-        if (!countdownEl) return;
-
-        if (this.giftPartner) {
-            countdownEl.textContent = '発生中';
-            return;
-        }
-
-        const timeSinceGift = Date.now() - this.lastGiftTime;
-        const remaining = Math.max(0, Math.ceil((30000 - timeSinceGift) / 1000));
-        countdownEl.textContent = remaining > 0 ? `${remaining}s` : 'Ready!';
-    }
 
     /** 描画処理 */
     draw() {
