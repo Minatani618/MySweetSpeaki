@@ -31,10 +31,24 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(135deg, rgba(224, 252, 224, 0.9) 0%, rgba(207, 243, 222, 0.9) 100%);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: #87ceeb;
+    /* 空色 */
+    overflow: hidden;
     transition: opacity 0.8s ease, visibility 0.8s;
+}
+
+.title-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('assets/backgrounds/trickal_logo.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: blur(5px) brightness(1.1);
+    transform: scale(1.1);
+    opacity: 0.6;
 }
 
 #title-screen.fade-out {
@@ -43,54 +57,111 @@ body {
 }
 
 .title-content {
-    background: var(--glass-bg);
-    padding: 4rem;
-    border-radius: 40px;
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--shadow);
+    position: relative;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 3rem 4rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
     text-align: center;
-    max-width: 700px;
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    animation: floatingUI 3s ease-in-out infinite;
+    max-width: 800px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: floatingUI 4s ease-in-out infinite;
+    z-index: 10;
 }
 
-.title-content h1 {
-    font-size: 4rem;
+.logo-container {
     margin-bottom: 2rem;
-    background: linear-gradient(45deg, #7af59d, #a3ffe4);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: 700;
-    letter-spacing: -1px;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
+}
+
+.main-logo {
+    max-width: 100%;
+    height: auto;
+    border-radius: 20px;
 }
 
 .title-content p {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     line-height: 1.8;
-    margin-bottom: 3rem;
-    color: #5d6d7e;
+    margin-bottom: 2.5rem;
+    color: #4a5568;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 #start-button {
-    font-size: 1.2rem;
-    padding: 1.2rem 3rem;
-    background: linear-gradient(135deg, #7af5a1 0%, #4ae281 100%);
-    box-shadow: 0 4px 15px rgba(122, 245, 171, 0.4);
+    font-size: 1.3rem;
+    padding: 1.2rem 4rem;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+    box-shadow: 0 10px 20px rgba(255, 154, 158, 0.4);
     border: none;
-    color: white;
+    color: #fff;
     font-family: inherit;
-    font-weight: 600;
+    font-weight: 700;
     border-radius: 60px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 #start-button:hover {
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 8px 25px rgba(122, 184, 245, 0.5);
-    background: linear-gradient(135deg, #8bf6ae 0%, #5be991 100%);
+    transform: translateY(-8px) scale(1.05);
+    box-shadow: 0 15px 30px rgba(255, 154, 158, 0.6);
+    filter: brightness(1.05);
+}
+
+/* 雲のスタイリング */
+.title-cloud {
+    position: absolute;
+    background: white;
+    border-radius: 100px;
+    opacity: 0.8;
+    z-index: 1;
+    filter: blur(2px);
+}
+
+.title-cloud::before,
+.title-cloud::after {
+    content: '';
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+}
+
+.cloud-1 {
+    width: 200px;
+    height: 60px;
+    top: 20%;
+    left: 10%;
+    animation: cloudFloat 20s linear infinite;
+}
+
+.cloud-2 {
+    width: 150px;
+    height: 45px;
+    top: 60%;
+    right: 15%;
+    animation: cloudFloat 25s linear infinite reverse;
+}
+
+.cloud-3 {
+    width: 250px;
+    height: 75px;
+    bottom: 15%;
+    left: 20%;
+    animation: cloudFloat 30s linear infinite;
+}
+
+@keyframes cloudFloat {
+    0% {
+        transform: translateX(-100px);
+    }
+
+    100% {
+        transform: translateX(200px);
+    }
 }
 
 @keyframes floatingUI {
@@ -147,16 +218,19 @@ body {
     filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
 }
 
+/* グローバルオーバーレイ (ギフトイベント等) */
 #room-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     pointer-events: none;
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 2000;
+    /* 全ての上に来るように */
 }
 
 /* メニュー (20%) */
@@ -381,34 +455,22 @@ h3 {
     color: var(--accent-color);
 }
 
-/* イベントUI */
-#room-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+/* 削除: 重複定義を整理 */
 
 #gift-event-ui {
-    position: absolute;
-    top: 40%;
-    /* スピキに重ならないよう少し上へ */
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
+    position: relative;
+    /* absoluteから変更 */
+    margin-top: -5%;
+    /* 少し上に寄せる */
     pointer-events: auto;
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    padding: 2rem;
-    border-radius: 24px;
+    padding: 2.5rem 3.5rem;
+    border-radius: 32px;
     border: 1px solid var(--glass-border);
-    box-shadow: var(--shadow);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
     text-align: center;
-    animation: popIn 0.3s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: popIn 0.4s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .hidden {

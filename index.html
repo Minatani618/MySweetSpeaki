@@ -16,13 +16,20 @@
 <body>
     <!-- タイトル画面オーバーレイ -->
     <div id="title-screen">
+        <div class="title-bg"></div>
         <div class="title-content">
-            <h1>ﾏｲ ｽｳｨｰﾄ ｽﾋﾟｷ</h1>
+            <div class="logo-container">
+                <img src="assets/backgrounds/trickal_logo.jpg" alt="Trickal Logo" class="main-logo">
+            </div>
             <p>ここはあなただけの小さな飼育スペース (開発中)。<br>
                 不思議な生き物(?) ｽﾋﾟｷたちと触れ合って癒されよう。
             </p>
             <button id="start-button">スピキに会いに行く</button>
         </div>
+        <!-- 装飾的な雲 -->
+        <div class="title-cloud cloud-1"></div>
+        <div class="title-cloud cloud-2"></div>
+        <div class="title-cloud cloud-3"></div>
     </div>
 
     <div id="app">
@@ -33,18 +40,6 @@
                 <!-- 隠れ家 (常に最前面) -->
                 <img id="speaki-hideout" src="assets/images/hideout.png" alt="hideout">
                 <!-- Speaki elements will be generated dynamically here -->
-                <div id="room-overlay">
-                    <div id="gift-event-ui" class="hidden">
-                        <p id="gift-message">お土産を持ってきたよ！</p>
-                        <div class="button-group">
-                            <button id="gift-btn-receive">受け取る</button>
-                        </div>
-                        <div id="reaction-group" class="hidden">
-                            <button id="reaction-btn-1">褒める</button>
-                            <button id="reaction-btn-2">お礼を言う</button>
-                        </div>
-                    </div>
-                </div>
             </main>
 
             <!-- メニュー（20%） -->
@@ -66,16 +61,32 @@
                     <h3>開発メモ: 今後やりたいこと</h3>
                     <div id="dev-roadmap">
                         ・ランダムギフトの種類を増やす<br>
-                        ・スマホ、タブレット対応(現状なでなでできない。イベントハンドラの問題？)
+                        ・スマホ、タブレット対応(現状なでなでできない。イベントハンドラの問題？)<br>
                         ・距離の近いｽﾋﾟｷどうしがおしゃべりする<br>
                         ・動き回る子供のｽﾋﾟｷ<br>
                         ・ｽﾋﾟｷ以外も出演<br>
-                        ・健康度と看病要素の追加(いるか？)
+                        ・健康度と看病要素の追加(いるか？)<br>
+                        ・ｽﾋﾟｷやアイテムに動きを持たせる(現状は静止画)
                     </div>
                 </div>
             </aside>
         </div>
     </div>
+
+    <!-- グローバルオーバーレイ (ギフトイベント等) -->
+    <div id="room-overlay">
+        <div id="gift-event-ui" class="hidden">
+            <p id="gift-message">お土産を持ってきたよ！</p>
+            <div class="button-group">
+                <button id="gift-btn-receive">受け取る</button>
+            </div>
+            <div id="reaction-group" class="hidden">
+                <button id="reaction-btn-1">褒める</button>
+                <button id="reaction-btn-2">お礼を言う</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 

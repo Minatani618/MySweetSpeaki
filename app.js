@@ -144,6 +144,12 @@ const ASSETS = {
         text: 'ﾃﾞﾙｼﾞﾊﾞｾﾞﾖ!',
         movePattern: 'shake'
     },
+    speaki_mood_sad_idle_6: {
+        imagefile: 'speaki_sad_walking_3.png',
+        soundfile: '完全詠唱.mp3',
+        text: '完全詠唱',
+        movePattern: 'shake'
+    },
 
     // ------ 歩き ------
     speaki_mood_sad_walking_1: {
@@ -227,13 +233,13 @@ const ASSETS = {
     speaki_mood_happy_giftwait_1: {
         imagefile: 'speaki_happy_idle_1.png', // ギフト待機画像
         soundfile: 'チョワヨ.mp3',
-        text: 'プレゼントだよ！',
+        text: '(ｽﾋﾟｷは私にプレゼントを持ってきてくれたようだ)',
         movePattern: 'none'
     },
     speaki_performance_happy_giftreaction_1: {
         imagefile: 'speaki_happy_idle_1.png',
         soundfile: '本場スピキくすぐり.mp3',
-        text: '(ｽﾋﾟｷはあなたが大好きなようだ)',
+        text: '(ｽﾋﾟｷは私にプレゼントを渡せてとっても満足げだ)',
         movePattern: 'swing'
     },
     speaki_performance_sad_gifttimeout_1: {
